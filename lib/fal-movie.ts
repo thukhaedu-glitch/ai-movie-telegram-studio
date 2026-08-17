@@ -63,7 +63,7 @@ export async function submitShot(params: { chatId: number; userId: number; model
         ? String(Math.min(30, Math.max(4, shot.duration)))
         : Math.min(15, Math.max(5, shot.duration)),
     aspect_ratio: model === "veo" && shot.aspectRatio === "1:1" ? "16:9" : shot.aspectRatio,
-    resolution: "720p",
+   resolution: model === "veo" ? "720p" : "480p",
     generate_audio: true,
     end_user_id: String(userId),
   };
