@@ -23,11 +23,11 @@ const help = `🎬 AI Movie Studio
 4. /scene Scene Title | environment and story purpose
 5. Create a shot:
 /shot Character1,Character2 | action | shot size | camera angle | lens | movement | lighting | environment | dialogue | negative prompt | duration | aspect ratio
-6. /generate SHOT_ID seedance
+6. /generate SHOT_ID seedance|veo|grok|kling
 7. When it looks right: /approve FULL_REQUEST_ID
    The bot extracts its last frame and anchors the next /shot to it.
 
-Models: seedance (best continuity), veo (cinematic dialogue), grok (fast drafts)
+Models: seedance (best continuity), veo (cinematic dialogue), grok (fast drafts), kling (cinematic motion + native audio)
 Other: /movies, /use MOVIE_ID, /resetcontinuity, /myid`;
 
 const textOf = (message: TelegramMessage) => (message.text || message.caption || "").trim();
@@ -103,7 +103,7 @@ async function handle(message: TelegramMessage) {
     return sendMessage(chatId, `✅ Shot saved.\nShot ID: ${result.shotId}\nGenerate: /generate ${result.shotId} seedance`);
   }
 
-  match = text.match(/^\/generate(?:@\w+)?\s+(\S+)\s+(seedance|veo|grok)$/i);
+  match = text.match(/^\/generate(?:@\w+)?\s+(\S+)\s+(seedance|veo|grok|kling)$/i);
   if (match) {
     const shotId = match[1];
     const model = match[2].toLowerCase() as ModelKey;
