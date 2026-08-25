@@ -18,6 +18,10 @@ const endpoints: Record<ModelKey, { text: string; reference: string }> = {
     text: "xai/grok-imagine-video/v1.5/text-to-video",
     reference: "xai/grok-imagine-video/v1.5/reference-to-video",
   },
+  kling: {
+    text: "fal-ai/kling-video/v3/standard/text-to-video",
+    reference: "fal-ai/kling-video/v3/standard/image-to-video",
+  },
 };
 
 export async function submitShot(params: { chatId: number; userId: number; model: ModelKey; shot: Shot; characters: Character[] }) {
@@ -26,7 +30,7 @@ export async function submitShot(params: { chatId: number; userId: number; model
     throw new Error("Veo image-to-video accepts one main character reference in this MVP. Use Seedance for multi-character shots.");
   }
 
-  const maxReferences = model === "seedance" ? 20 : model === "grok" ? 7 : 1;
+  const maxReferences = model === "seedance" || model === "kling" ? 20 : model === "grok" ? 7 : 1;
   const selected: Array<{ character: Character; mediaIndex: number }> = [];
   const imageUrls: string[] = [];
   let continuityIndex: number | undefined;
@@ -51,9 +55,44 @@ export async function submitShot(params: { chatId: number; userId: number; model
     (referenceIndices[item.character.id] ||= []).push(imageUrls.length);
   }
 
-  const { prompt, negative } = buildPrompt(shot, characters, referenceIndices, continuityIndex);
+  const { prompt, negative } = buildPrompt(shot, characters, referenceIndices, continuityIndex, model);
   const hasReferences = imageUrls.length > 0;
   const endpoint = hasReferences ? endpoints[model].reference : endpoints[model].text;
+
+  if (model === "kling") {
+    const input: Record<string, unknown> = {
+      prompt,
+      duration: String(Math.min(15, Math.max(4, shot.duration))),
+      generate_audio: true,
+      negative_prompt: negative,
+      cfg_scale: 0.5,
+      shot_type: "customize",
+    };
+
+    if (hasReferences) {
+      input.start_image_url = imageUrls[0];
+      input.elements = characters.map((character) => {
+        const urls = (referenceIndices[character.id] || [])
+          .map((index) => imageUrls[index - 1])
+          .filter((url): url is string => Boolean(url));
+        return urls.length
+          ? { frontal_image_url: urls[0], reference_image_urls: urls.slice(1, 4) }
+          : null;
+      }).filter(Boolean);
+    } else {
+      input.aspect_ratio = shot.aspectRatio;
+    }
+
+    const signature = signFalContext(chatId, userId, model);
+    const webhook = new URL("/api/fal", env("PUBLIC_BASE_URL"));
+    webhook.searchParams.set("c", String(chatId));
+    webhook.searchParams.set("u", String(userId));
+    webhook.searchParams.set("m", model);
+    webhook.searchParams.set("s", signature);
+
+    const result = await fal.queue.submit(endpoint, { input, webhookUrl: webhook.toString() });
+    return { requestId: result.request_id, endpoint, prompt };
+  }
 
   const input: Record<string, unknown> = {
     prompt,
@@ -63,7 +102,7 @@ export async function submitShot(params: { chatId: number; userId: number; model
         ? String(Math.min(30, Math.max(4, shot.duration)))
         : Math.min(15, Math.max(5, shot.duration)),
     aspect_ratio: model === "veo" && shot.aspectRatio === "1:1" ? "16:9" : shot.aspectRatio,
-   resolution: model === "veo" ? "720p" : "480p",
+    resolution: model === "veo" ? "720p" : "480p",
     generate_audio: true,
     end_user_id: String(userId),
   };
