@@ -1,4 +1,4 @@
-export type ModelKey = "seedance" | "veo" | "grok";
+export type ModelKey = "seedance" | "veo" | "grok" | "kling";
 
 export interface TelegramPhoto { file_id: string; file_size?: number; width: number; height: number; }
 export interface TelegramMessage {
