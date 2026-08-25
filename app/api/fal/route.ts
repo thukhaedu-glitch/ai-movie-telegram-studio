@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const userId = Number(request.nextUrl.searchParams.get("u"));
   const model = request.nextUrl.searchParams.get("m") as ModelKey;
   const signature = request.nextUrl.searchParams.get("s") || "";
-  if (!chatId || !userId || !["seedance", "veo", "grok"].includes(model) || !verifyFalContext(chatId, userId, model, signature)) {
+  if (!chatId || !userId || !["seedance", "veo", "grok", "kling"].includes(model) || !verifyFalContext(chatId, userId, model, signature)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
