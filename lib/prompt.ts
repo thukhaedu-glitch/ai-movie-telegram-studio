@@ -1,4 +1,4 @@
-import type { Character, Shot } from "./types";
+import type { Character, ModelKey, Shot } from "./types";
 
 export const defaultNegative = [
   "identity drift", "face morphing", "different person", "age change", "hairstyle change",
@@ -7,9 +7,17 @@ export const defaultNegative = [
   "unwanted text", "subtitles", "logo", "watermark", "low detail", "plastic skin", "oversharpening"
 ].join(", ");
 
-export function buildPrompt(shot: Shot, characters: Character[], referenceIndices: Record<string, number[]>, continuityIndex?: number) {
-  const characterBlock = characters.map((character) =>
-    `${(referenceIndices[character.id] || []).map((index) => `[Image${index}]`).join(", ")} show the same character: ${character.name}. Identity lock: ${character.description}. Keep the exact same face, age, body proportions, hair and wardrobe throughout the entire shot.`
+export function buildPrompt(
+  shot: Shot,
+  characters: Character[],
+  referenceIndices: Record<string, number[]>,
+  continuityIndex?: number,
+  model?: ModelKey,
+) {
+  const characterBlock = characters.map((character, index) =>
+    `${model === "kling"
+      ? `@Element${index + 1}`
+      : (referenceIndices[character.id] || []).map((imageIndex) => `[Image${imageIndex}]`).join(", ")} shows the same character: ${character.name}. Identity lock: ${character.description}. Keep the exact same face, age, body proportions, hair and wardrobe throughout the entire shot.`
   ).join("\n");
 
   const dialogue = shot.dialogue ? `Dialogue/audio: ${shot.dialogue}` : "No spoken dialogue unless implied by the action.";
@@ -18,7 +26,9 @@ export function buildPrompt(shot: Shot, characters: Character[], referenceIndice
   const prompt = [
     "Create one coherent cinematic movie shot. Character identity and continuity have higher priority than stylization.",
     continuityIndex
-      ? `[Image${continuityIndex}] is the exact final frame of the previous approved shot. Begin this new shot from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally.`
+      ? model === "kling"
+        ? "The start image is the exact final frame of the previous approved shot. Begin from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally."
+        : `[Image${continuityIndex}] is the exact final frame of the previous approved shot. Begin this new shot from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally.`
       : "This is a fresh shot without a previous-frame continuity anchor.",
     characterBlock,
     `Environment: ${shot.environment}.`,
