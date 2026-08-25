@@ -7,7 +7,21 @@ import type { ModelKey } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-interface FalWebhook { request_id: string; status: "OK" | "ERROR"; payload?: { video?: { url?: string } }; error?: string; }
+interface FalWebhook {
+  request_id: string;
+  status: "OK" | "ERROR";
+  payload?: { video?: { url?: string }; error?: unknown; detail?: unknown };
+  error?: unknown;
+  detail?: unknown;
+}
+
+function errorText(body: FalWebhook): string {
+  const error = body.error ?? body.detail ?? body.payload?.error ?? body.payload?.detail;
+  if (!error) return "No video returned.";
+  if (typeof error === "string") return error;
+  try { return JSON.stringify(error).slice(0, 3000); }
+  catch { return String(error); }
+}
 
 export async function POST(request: NextRequest) {
   const chatId = Number(request.nextUrl.searchParams.get("c"));
@@ -25,8 +39,9 @@ export async function POST(request: NextRequest) {
   try {
     const videoUrl = body.payload?.video?.url;
     if (body.status !== "OK" || !videoUrl) {
-      await sendMessage(chatId, `❌ ${model} generation failed.\n${body.error || "No video returned."}`);
-      await finishJob(body.request_id, "error", { error: body.error || "No video returned" });
+      const message = errorText(body);
+      await sendMessage(chatId, `❌ ${model} generation failed.\n${message}`);
+      await finishJob(body.request_id, "error", { error: message });
       return NextResponse.json({ ok: true });
     }
     const stored = await persistGeneratedVideo(videoUrl, `movies/${job.movieId}/shots/${job.shotId}/generations/${body.request_id}.mp4`);
