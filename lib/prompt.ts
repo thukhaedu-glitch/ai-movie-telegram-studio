@@ -13,12 +13,17 @@ export function buildPrompt(
   referenceIndices: Record<string, number[]>,
   continuityIndex?: number,
   model?: ModelKey,
+  klingElementIndices: Record<string, number> = {},
 ) {
-  const characterBlock = characters.map((character, index) =>
-    `${model === "kling"
-      ? `@Element${index + 1}`
-      : (referenceIndices[character.id] || []).map((imageIndex) => `[Image${imageIndex}]`).join(", ")} shows the same character: ${character.name}. Identity lock: ${character.description}. Keep the exact same face, age, body proportions, hair and wardrobe throughout the entire shot.`
-  ).join("\n");
+  const imageToken = (index: number) => model === "seedance" ? `@Image${index}` : `[Image${index}]`;
+  const characterBlock = characters.map((character) => {
+    const source = model === "kling"
+      ? klingElementIndices[character.id]
+        ? `@Element${klingElementIndices[character.id]}`
+        : "The start image"
+      : (referenceIndices[character.id] || []).map(imageToken).join(", ");
+    return `${source} shows the same character: ${character.name}. Identity lock: ${character.description}. Keep the exact same face, age, body proportions, hair and wardrobe throughout the entire shot.`;
+  }).join("\n");
 
   const dialogue = shot.dialogue ? `Dialogue/audio: ${shot.dialogue}` : "No spoken dialogue unless implied by the action.";
   const negative = [defaultNegative, shot.negativePrompt].filter(Boolean).join(", ");
@@ -28,7 +33,7 @@ export function buildPrompt(
     continuityIndex
       ? model === "kling"
         ? "The start image is the exact final frame of the previous approved shot. Begin from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally."
-        : `[Image${continuityIndex}] is the exact final frame of the previous approved shot. Begin this new shot from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally.`
+        : `${imageToken(continuityIndex)} is the exact final frame of the previous approved shot. Begin this new shot from that exact composition, character pose, facial identity, wardrobe, lighting, environment and camera position, then continue the new action naturally.`
       : "This is a fresh shot without a previous-frame continuity anchor.",
     characterBlock,
     `Environment: ${shot.environment}.`,
